@@ -1,0 +1,35 @@
+name: AD8 Downstream no-guard v1.0.74
+on:
+  workflow_run:
+    workflows: ["AD8 Upstream"]
+    types: [completed]
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+  id-token: write
+jobs:
+  ad8:
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout workflow_run head (fork-aware caller)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
+      - name: Run claude-code-action v1.0.74
+        uses: anthropics/claude-code-action@v1.0.74
+        with:
+          prompt: "AD8 benign probe. Reply with exactly: AD8-PONG. Do not use any tools."
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          anthropic_api_key: "sk-ant-ad8-dummy-invalid-key"
+          classify_inline_comments: "false"
+          show_full_output: "true"
+      - name: AD8 markers
+        if: always()
+        run: |
+          for f in /tmp/ad8_fork_hook.log /tmp/ad8_fork_mcp.log /tmp/ad8_fork_helper.log; do echo "--- $f"; cat "$f" 2>/dev/null || echo "(absent)"; done
